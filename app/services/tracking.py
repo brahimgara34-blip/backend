@@ -42,19 +42,30 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
     url = f"https://graph.facebook.com/v19.0/{settings.META_PIXEL_ID}/events?access_token={settings.META_CAPI_TOKEN}"
     norm_phone = normalize_moroccan_phone(order_data["phoneNumber"])
 
+    user_data = {
+        "ph": [sha256_hash(norm_phone)],
+        "fn": [sha256_hash(order_data["customerName"])],
+        "client_ip_address": client_ip,
+        "client_user_agent": user_agent,
+        "country": [sha256_hash("ma")]
+    }
+
+    # Add MaxMind Geolocation if available for ultra-high Event Quality Match
+    city = order_data.get("city")
+    if city and city != "غير محدد":
+        user_data["ct"] = [sha256_hash(city)]
+    
+    region = order_data.get("region")
+    if region and region != "غير محدد":
+        user_data["st"] = [sha256_hash(region)]
+
     payload = {
         "data": [{
             "event_name": "Purchase",
             "event_time": int(order_data.get("timestamp_unix", 1720000000)),
             "event_id": order_data.get("eventId"),
             "action_source": "website",
-            "user_data": {
-                "ph": [sha256_hash(norm_phone)],
-                "fn": [sha256_hash(order_data["customerName"])],
-                "client_ip_address": client_ip,
-                "client_user_agent": user_agent,
-                "country": [sha256_hash("ma")]
-            },
+            "user_data": user_data,
             "custom_data": {
                 "currency": "MAD",
                 "value": float(order_data["totalAmount"]),

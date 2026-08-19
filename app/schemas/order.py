@@ -28,6 +28,8 @@ class OrderResponseSchema(BaseModel):
     customer_name: str
     phone_number: str
     total_amount: float
+    city: Optional[str] = None
+    region: Optional[str] = None
     status: str
     created_at: Optional[datetime] = None
 

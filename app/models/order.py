@@ -17,8 +17,16 @@ class Order(Base):
     has_upsell = Column(Boolean, default=False)
     upsell_product = Column(String(255), nullable=True)
     upsell_amount = Column(Numeric(10, 2), default=0.00)
-    status = Column(String(50), default="طلب جديد مؤكد")
+    status = Column(String(50), default="طلب جديد مؤكد (COD)")
     event_id = Column(String(100), nullable=True)
+    
+    # Client & Geolocation (MaxMind)
+    city = Column(String(100), nullable=True)
+    region = Column(String(100), nullable=True)
+    country = Column(String(50), nullable=True, default="MA")
+    is_proxy = Column(Boolean, default=False)
+    risk_score = Column(Numeric(5, 2), nullable=True)
     user_agent = Column(Text, nullable=True)
     client_ip = Column(String(50), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())

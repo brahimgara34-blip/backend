@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Webhook
     GOOGLE_SHEET_WEBHOOK_URL: str = ""
     
+    # MaxMind GeoIP & Fraud Protection
+    MAXMIND_ACCOUNT_ID: str = ""
+    MAXMIND_LICENSE_KEY: str = ""
+    
     # Tracking Meta CAPI
     META_PIXEL_ID: str = ""
     META_CAPI_TOKEN: str = ""
