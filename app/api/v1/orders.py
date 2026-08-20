@@ -2,7 +2,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
-from app.models.order import Order
+from app.models.order import Order, OrderItem, TrackingEvent
 from app.schemas.order import OrderCreateSchema, OrderResponseSchema
 from app.services.maxmind import lookup_maxmind_ip
 from app.services.tracking import (
@@ -31,16 +31,14 @@ async def create_order(
 
     # 2. MaxMind GeoIP and Fraud Detection lookup
     geo_data = await lookup_maxmind_ip(client_ip)
-
     normalized_phone = normalize_moroccan_phone(payload.phoneNumber)
 
-    # 3. Create database order
+    # 3. Create database Order instance
     new_order = Order(
         order_id=payload.orderId,
         customer_name=payload.customerName,
         phone_number=payload.phoneNumber,
         normalized_phone=normalized_phone,
-        items=[item.model_dump() for item in payload.items],
         total_amount=payload.totalAmount,
         has_upsell=payload.hasUpsell,
         upsell_product=payload.upsellProduct,
@@ -56,6 +54,47 @@ async def create_order(
         client_ip=client_ip
     )
 
+    # 4. Attach OrderItems (order_items table)
+    for item in payload.items:
+        unit_price = item.price or 0.0
+        tot_price = unit_price * item.quantity
+        is_item_upsell = bool(payload.hasUpsell and (item.name == payload.upsellProduct or "[عرض حصري" in item.name))
+        
+        order_item = OrderItem(
+            product_id=item.id or item.name,
+            product_name=item.name,
+            quantity=item.quantity,
+            unit_price=unit_price,
+            total_price=tot_price,
+            is_upsell=is_item_upsell
+        )
+        new_order.items.append(order_item)
+
+    # 5. Prepare tracking dictionary
+    order_dict = payload.model_dump()
+    order_dict["timestamp_unix"] = int(time.time())
+    order_dict["city"] = geo_data.get("city")
+    order_dict["region"] = geo_data.get("region")
+    order_dict["country"] = geo_data.get("country", "MA")
+    order_dict["is_proxy"] = geo_data.get("is_proxy", False)
+    order_dict["risk_score"] = geo_data.get("risk_score", 0.0)
+    order_dict["client_ip"] = client_ip
+
+    # 6. Attach TrackingEvent (tracking_events table)
+    tracking_evt = TrackingEvent(
+        event_id=payload.eventId or f"evt_{payload.orderId}",
+        event_name="Purchase",
+        meta_status="pending",
+        tiktok_status="pending",
+        snapchat_status="pending",
+        sheets_status="pending",
+        maxmind_status="completed" if geo_data.get("city") else "skipped",
+        ip_address=client_ip,
+        payload=order_dict
+    )
+    new_order.tracking_events.append(tracking_evt)
+
+    # 7. Persist to PostgreSQL Database
     try:
         db.add(new_order)
         await db.commit()
@@ -67,17 +106,7 @@ async def create_order(
             detail=f"Database error while creating order: {str(e)}"
         )
 
-    # 4. Prepare tracking payload with GeoIP and MaxMind data
-    order_dict = payload.model_dump()
-    order_dict["timestamp_unix"] = int(time.time())
-    order_dict["city"] = geo_data.get("city")
-    order_dict["region"] = geo_data.get("region")
-    order_dict["country"] = geo_data.get("country", "MA")
-    order_dict["is_proxy"] = geo_data.get("is_proxy", False)
-    order_dict["risk_score"] = geo_data.get("risk_score", 0.0)
-    order_dict["client_ip"] = client_ip
-
-    # 5. Schedule background webhook & CAPI events (Meta, TikTok, Snapchat)
+    # 8. Schedule background webhook & CAPI events
     background_tasks.add_task(send_google_sheets_webhook, order_dict)
     background_tasks.add_task(send_meta_capi, order_dict, client_ip, user_agent)
     background_tasks.add_task(send_tiktok_capi, order_dict, client_ip, user_agent)

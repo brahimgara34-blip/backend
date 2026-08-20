@@ -10,6 +10,19 @@ class OrderItemSchema(BaseModel):
     price: Optional[float] = 0.0
 
 
+class OrderItemResponseSchema(BaseModel):
+    id: int
+    product_id: Optional[str] = None
+    product_name: str
+    quantity: int
+    unit_price: float
+    total_price: float
+    is_upsell: bool = False
+
+    class Config:
+        from_attributes = True
+
+
 class OrderCreateSchema(BaseModel):
     orderId: str
     customerName: str
@@ -30,7 +43,9 @@ class OrderResponseSchema(BaseModel):
     total_amount: float
     city: Optional[str] = None
     region: Optional[str] = None
+    country: Optional[str] = "MA"
     status: str
+    items: Optional[List[OrderItemResponseSchema]] = []
     created_at: Optional[datetime] = None
 
     class Config:
