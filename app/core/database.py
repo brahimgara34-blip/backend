@@ -31,7 +31,7 @@ async def get_db():
 async def init_db():
     """
     Automatically creates and migrates all tables (orders, order_items, tracking_events)
-    in PostgreSQL, adding any missing columns like 'city', 'region', 'is_proxy', etc.
+    in PostgreSQL, ensuring no missing columns and no strict constraint failures.
     """
     from app.models.order import Order, OrderItem, TrackingEvent  # Register models
 
@@ -39,7 +39,7 @@ async def init_db():
         # 1. Create tables if they do not exist
         await conn.run_sync(Base.metadata.create_all)
 
-        # 2. Alter existing 'orders' table to ensure all MaxMind and metadata columns exist
+        # 2. Alter existing 'orders' table to ensure all columns exist and constraints are relaxed
         migration_statements = [
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS city VARCHAR(100);",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS region VARCHAR(100);",
@@ -54,6 +54,9 @@ async def init_db():
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS upsell_amount NUMERIC(10, 2) DEFAULT 0.00;",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS normalized_phone VARCHAR(50);",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'طلب جديد مؤكد (COD)';",
+            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB;",
+            "ALTER TABLE orders ALTER COLUMN items DROP NOT NULL;",
+            "ALTER TABLE orders ALTER COLUMN normalized_phone DROP NOT NULL;",
             
             # Ensure order_items exists
             """

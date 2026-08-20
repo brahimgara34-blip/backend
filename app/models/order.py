@@ -12,7 +12,8 @@ class Order(Base):
     order_id = Column(String(50), unique=True, index=True, nullable=False)
     customer_name = Column(String(255), nullable=False)
     phone_number = Column(String(50), nullable=False)
-    normalized_phone = Column(String(50), nullable=False)
+    normalized_phone = Column(String(50), nullable=True)
+    items = Column(JSONB, nullable=True) # Direct JSONB storage in orders table
     total_amount = Column(Numeric(10, 2), nullable=False)
     has_upsell = Column(Boolean, default=False)
     upsell_product = Column(String(255), nullable=True)
@@ -32,7 +33,7 @@ class Order(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    items = relationship(
+    order_items = relationship(
         "OrderItem",
         back_populates="order",
         cascade="all, delete-orphan",
@@ -60,7 +61,7 @@ class OrderItem(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationship
-    order = relationship("Order", back_populates="items")
+    order = relationship("Order", back_populates="order_items")
 
 
 class TrackingEvent(Base):

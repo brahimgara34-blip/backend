@@ -41,6 +41,7 @@ async def create_order(
         customer_name=payload.customerName,
         phone_number=payload.phoneNumber,
         normalized_phone=normalized_phone,
+        items=[item.model_dump() for item in payload.items], # Stores in orders.items JSONB column
         total_amount=payload.totalAmount,
         has_upsell=payload.hasUpsell,
         upsell_product=payload.upsellProduct,
@@ -56,7 +57,7 @@ async def create_order(
         client_ip=client_ip
     )
 
-    # 4. Attach OrderItems (order_items table)
+    # 4. Attach OrderItems to order_items relation
     for item in payload.items:
         unit_price = item.price or 0.0
         tot_price = unit_price * item.quantity
@@ -70,7 +71,7 @@ async def create_order(
             total_price=tot_price,
             is_upsell=is_item_upsell
         )
-        new_order.items.append(order_item)
+        new_order.order_items.append(order_item)
 
     # 5. Prepare tracking dictionary
     order_dict = payload.model_dump()
@@ -101,11 +102,10 @@ async def create_order(
         db.add(new_order)
         await db.commit()
         await db.refresh(new_order)
-        print(f"✅ [Database Success] Order #{new_order.order_id} saved successfully with {len(new_order.items)} items!")
+        print(f"✅ [Database Success] Order #{new_order.order_id} saved successfully with {len(new_order.order_items)} items!")
     except Exception as e:
         await db.rollback()
         print(f"❌ [Database Error] Failed to insert order #{payload.orderId} into PostgreSQL: {str(e)}")
-        # Raise HTTP exception with clean message
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error while creating order: {str(e)}"
