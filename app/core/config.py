@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List
+import re
 
 
 class Settings(BaseSettings):
@@ -7,8 +8,8 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
-    # Database
-    DATABASE_URL: str = "postgres://vitalismaroc:vitalismaroc@vitalismaroc_datapase:5432/vitalismaroc?sslmode=disable"
+    # Database (Default fallback connects to service 'datapase' or 'vitalismaroc_datapase' in Easypanel)
+    DATABASE_URL: str = "postgres://postgres:postgres@datapase:5432/vitalismaroc"
     
     # Webhook
     GOOGLE_SHEET_WEBHOOK_URL: str = ""
@@ -30,23 +31,39 @@ class Settings(BaseSettings):
     SNAPCHAT_API_TOKEN: str = ""
     
     # CORS
-    ALLOWED_ORIGINS: str = "https://vitalismaroc.shop,http://localhost:3000,http://127.0.0.1:3000"
+    ALLOWED_ORIGINS: str = "*"
 
     @property
     def cors_origins(self) -> List[str]:
+        if self.ALLOWED_ORIGINS.strip() == "*":
+            return ["*"]
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     @property
     def async_database_url(self) -> str:
-        url = self.DATABASE_URL
-        if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        # remove sslmode parameter for asyncpg if present or adjust
-        if "?sslmode=disable" in url:
-            url = url.replace("?sslmode=disable", "")
-        return url
+        raw_url = self.DATABASE_URL.strip().strip("'\"")
+        if not raw_url:
+            return ""
+
+        # Normalize driver to postgresql+asyncpg://
+        if raw_url.startswith("postgres://"):
+            raw_url = "postgresql+asyncpg://" + raw_url[len("postgres://"):]
+        elif raw_url.startswith("postgresql://"):
+            raw_url = "postgresql+asyncpg://" + raw_url[len("postgresql://"):]
+
+        # Clean any query string parameters that cause asyncpg errors (e.g. sslmode=disable)
+        if "?" in raw_url:
+            base_url, query_str = raw_url.split("?", 1)
+            clean_params = [
+                param for param in query_str.split("&")
+                if not param.lower().startswith("sslmode") and not param.lower().startswith("ssl")
+            ]
+            if clean_params:
+                raw_url = f"{base_url}?{'&'.join(clean_params)}"
+            else:
+                raw_url = base_url
+
+        return raw_url
 
     class Config:
         env_file = ".env"
