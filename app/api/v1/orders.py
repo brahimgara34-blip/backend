@@ -23,6 +23,8 @@ async def create_order(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
+    print(f"\n🔔 [New Order Received] ID: {payload.orderId} | Customer: {payload.customerName} | Phone: {payload.phoneNumber} | Total: {payload.totalAmount} MAD")
+
     # 1. Get client IP and User Agent
     client_ip = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for") or (request.client.host if request.client else "127.0.0.1")
     if "," in client_ip:
@@ -99,8 +101,11 @@ async def create_order(
         db.add(new_order)
         await db.commit()
         await db.refresh(new_order)
+        print(f"✅ [Database Success] Order #{new_order.order_id} saved successfully with {len(new_order.items)} items!")
     except Exception as e:
         await db.rollback()
+        print(f"❌ [Database Error] Failed to insert order #{payload.orderId} into PostgreSQL: {str(e)}")
+        # Raise HTTP exception with clean message
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error while creating order: {str(e)}"
