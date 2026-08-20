@@ -1,26 +1,24 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import init_db
 from app.api.v1.orders import router as orders_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"==================================================")
-    print(f"[Startup] {settings.PROJECT_NAME} v{settings.VERSION} starting...")
-    print(f"[Database URL] {settings.async_database_url.split('@')[-1] if '@' in settings.async_database_url else 'Configured'}")
+    print(f"[Startup] {settings.PROJECT_NAME} v{settings.VERSION} is starting...")
     
-    # Test database connectivity
+    # Automatically create / verify tables in whatever database is configured in DATABASE_URL
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        print("[Database Check] Connection to PostgreSQL is ACTIVE & HEALTHY! ✅")
+        print("[Startup] Connecting to database and creating tables (orders, order_items, tracking_events)...")
+        await init_db()
+        print("✅ [Database Connected & Ready] Tables are verified and ready to accept orders!")
     except Exception as e:
-        print(f"[Database Warning] Could not connect to PostgreSQL: {e} ❌")
-        print(f"[Hint] Verify DATABASE_URL in Easypanel Environment tab.")
+        print(f"❌ [Database Connection Error]: {e}")
+        print(f"👉 Please ensure DATABASE_URL in Easypanel Environment matches your PostgreSQL service.")
 
     print(f"==================================================")
     yield

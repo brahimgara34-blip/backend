@@ -28,5 +28,10 @@ async def get_db():
 
 
 async def init_db():
+    """
+    Automatically creates all tables (orders, order_items, tracking_events)
+    in PostgreSQL if they do not exist.
+    """
+    from app.models.order import Order, OrderItem, TrackingEvent  # Ensure models are registered in Base.metadata
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
