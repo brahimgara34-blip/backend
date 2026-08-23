@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
 from app.api.v1.orders import router as orders_router
+from app.api.v1.admin import router as admin_router
+from app.api.v1.analytics import router as analytics_router
 
 
 @asynccontextmanager
@@ -13,9 +15,9 @@ async def lifespan(app: FastAPI):
     
     # Automatically create / verify tables in whatever database is configured in DATABASE_URL
     try:
-        print("[Startup] Connecting to database and creating tables (orders, order_items, tracking_events)...")
+        print("[Startup] Connecting to database and creating tables (orders, order_items, tracking_events, analytics_clicks)...")
         await init_db()
-        print("✅ [Database Connected & Ready] Tables are verified and ready to accept orders!")
+        print("✅ [Database Connected & Ready] Tables and indices are verified and ready!")
     except Exception as e:
         print(f"❌ [Database Connection Error]: {e}")
         print(f"👉 Please ensure DATABASE_URL in Easypanel Environment matches your PostgreSQL service.")
@@ -31,7 +33,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Robust CORS Configuration: Allow all origins so no order is ever blocked by CORS
+# Robust CORS Configuration: Allow all origins so no order or tracking call is ever blocked by CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,6 +44,8 @@ app.add_middleware(
 
 # Routers
 app.include_router(orders_router, prefix=settings.API_V1_STR, tags=["Orders"])
+app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin Dashboard"])
+app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["Analytics & Clicks"])
 
 
 @app.get("/health", tags=["Health"])

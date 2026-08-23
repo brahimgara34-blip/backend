@@ -30,17 +30,19 @@ async def get_db():
 
 async def init_db():
     """
-    Automatically creates and migrates all tables (orders, order_items, tracking_events)
+    Automatically creates and migrates all tables (orders, order_items, tracking_events, analytics_clicks)
     in PostgreSQL, ensuring no missing columns and no strict constraint failures.
     """
-    from app.models.order import Order, OrderItem, TrackingEvent  # Register models
+    from app.models.order import Order, OrderItem, TrackingEvent
+    from app.models.analytics import ClickEvent
 
     async with engine.begin() as conn:
         # 1. Create tables if they do not exist
         await conn.run_sync(Base.metadata.create_all)
 
-        # 2. Alter existing 'orders' table to ensure all columns exist and constraints are relaxed
+        # 2. Alter existing tables to ensure all columns and indices exist
         migration_statements = [
+            # Orders columns
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS city VARCHAR(100);",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS region VARCHAR(100);",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS country VARCHAR(50) DEFAULT 'MA';",
@@ -90,12 +92,36 @@ async def init_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
             """,
+
+            # Ensure analytics_clicks exists
+            """
+            CREATE TABLE IF NOT EXISTS analytics_clicks (
+                id SERIAL PRIMARY KEY,
+                path VARCHAR(255) NOT NULL DEFAULT '/',
+                client_ip VARCHAR(50),
+                country VARCHAR(10) DEFAULT 'MA',
+                city VARCHAR(100),
+                region VARCHAR(100),
+                is_proxy BOOLEAN DEFAULT FALSE,
+                risk_score NUMERIC(5, 2) DEFAULT 0.00,
+                is_valid_morocco BOOLEAN DEFAULT TRUE,
+                referrer VARCHAR(500),
+                user_agent TEXT,
+                session_id VARCHAR(100),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
             
-            # Indices
+            # Indices for lightning-fast queries
             "CREATE INDEX IF NOT EXISTS idx_orders_order_id ON orders(order_id);",
             "CREATE INDEX IF NOT EXISTS idx_orders_phone ON orders(phone_number);",
+            "CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);",
+            "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);",
             "CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);",
             "CREATE INDEX IF NOT EXISTS idx_tracking_events_order_id ON tracking_events(order_id);",
+            "CREATE INDEX IF NOT EXISTS idx_analytics_clicks_created_at ON analytics_clicks(created_at);",
+            "CREATE INDEX IF NOT EXISTS idx_analytics_clicks_valid ON analytics_clicks(is_valid_morocco);",
+            "CREATE INDEX IF NOT EXISTS idx_analytics_clicks_path ON analytics_clicks(path);",
         ]
 
         for stmt in migration_statements:

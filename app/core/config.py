@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     # Database (Default fallback connects to service 'datapase' or 'vitalismaroc_datapase' in Easypanel)
     DATABASE_URL: str = "postgres://postgres:postgres@datapase:5432/vitalismaroc"
     
+    # Admin Credentials & Security (Configurable via Environment Variables)
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "vitalis2026admin"
+    ADMIN_JWT_SECRET: str = "vitalis_maroc_admin_secure_secret_key_2026_xyz"
+    ADMIN_SESSION_HOURS: int = 72
+    MAXMIND_RISK_THRESHOLD: float = 30.0
+
     # Webhook
     GOOGLE_SHEET_WEBHOOK_URL: str = ""
     
