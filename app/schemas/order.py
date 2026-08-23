@@ -5,6 +5,7 @@ from datetime import datetime
 
 class OrderItemSchema(BaseModel):
     id: Optional[str] = None
+    sku: Optional[str] = None
     name: str
     quantity: int = Field(default=1, ge=1)
     price: Optional[float] = 0.0
@@ -30,7 +31,7 @@ class OrderResponseSchema(BaseModel):
     total_amount: float
     city: Optional[str] = None
     region: Optional[str] = None
-    country: Optional[str] = "MA"
+    country: Optional[str] = "maroc"
     status: str
     created_at: Optional[datetime] = None
 
