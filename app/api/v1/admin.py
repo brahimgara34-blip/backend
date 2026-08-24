@@ -47,18 +47,26 @@ def _get_date_bounds(range_key: str, start_str: Optional[str] = None, end_str: O
 # ── 1. Admin Authentication ──────────────────────────────────────────────────
 @router.post("/login", response_model=AdminLoginResponse)
 async def admin_login(payload: AdminLoginRequest):
-    if payload.username.strip() != settings.ADMIN_USERNAME or payload.password != settings.ADMIN_PASSWORD:
+    req_username = (payload.username or "").strip().lower()
+    conf_username = (settings.ADMIN_USERNAME or "admin").strip().lower()
+    
+    req_password = (payload.password or "").strip()
+    conf_password = (settings.ADMIN_PASSWORD or "vitalis2026admin").strip()
+
+    if req_username != conf_username or req_password != conf_password:
+        print(f"⚠️ [Admin Login Failed]: received username='{req_username}' (expected='{conf_username}')")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="اسم المستخدم أو كلمة المرور غير صحيحة"
+            detail="اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التأكد من كتابة: admin و vitalis2026admin (أو القيمة المحددة في .env)"
         )
     
-    token = create_admin_token(payload.username)
+    token = create_admin_token(payload.username.strip())
+    print(f"✅ [Admin Login Success]: User '{req_username}' logged in successfully.")
     return AdminLoginResponse(
         token=token,
         token_type="Bearer",
         expires_in_hours=settings.ADMIN_SESSION_HOURS,
-        username=payload.username
+        username=payload.username.strip()
     )
 
 
