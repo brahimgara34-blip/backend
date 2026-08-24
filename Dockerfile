@@ -4,13 +4,15 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev git curl && rm -rf /var/lib/apt/lists/*
 
 # Copy local files if present in context
 COPY . .
 
-# If requirements.txt is missing in context (e.g. standalone Dockerfile build context in Easypanel), clone repository
-RUN if [ ! -f requirements.txt ]; then \
+# Invalidate Docker build cache automatically on every git commit push
+ADD https://api.github.com/repos/brahimgara34-blip/backend/git/refs/heads/main /tmp/latest_backend_commit.json
+RUN if [ ! -f requirements.txt ] || [ ! -d app ]; then \
+      rm -rf /tmp/repo && \
       git clone https://github.com/brahimgara34-blip/backend.git /tmp/repo && \
       cp -r /tmp/repo/. /app/ && \
       rm -rf /tmp/repo; \
