@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
@@ -48,6 +49,16 @@ app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["A
 app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["Analytics & Clicks"])
 
 
+@app.get("/", tags=["Root"])
+async def root():
+    return {
+        "service": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "status": "online",
+        "docs": "/docs"
+    }
+
+
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {
@@ -55,3 +66,51 @@ async def health_check():
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION
     }
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse, tags=["SEO"])
+async def get_robots():
+    return "User-agent: *\nAllow: /\nSitemap: https://vitalismaroc.shop/sitemap.xml\n"
+
+
+@app.get("/sitemap.xml", tags=["SEO"])
+async def get_sitemap():
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://vitalismaroc.shop/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://vitalismaroc.shop/collections</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://vitalismaroc.shop/products/hydropure-shower</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
+    <loc>https://vitalismaroc.shop/products/aurafloss-water-flosser</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
+    <loc>https://vitalismaroc.shop/products/ergocushion-seat</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
+    <loc>https://vitalismaroc.shop/about</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vitalismaroc.shop/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>"""
+    return Response(content=sitemap_xml, media_type="application/xml")
