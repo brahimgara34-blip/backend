@@ -184,9 +184,13 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
 
     async with httpx.AsyncClient() as client:
         try:
-            await client.post(url, json=payload, timeout=6.0)
+            response = await client.post(url, json=payload, timeout=6.0)
+            if response.is_success:
+                print(f"✅ [Meta CAPI] Successfully sent Purchase event. Deduplication ID: {order_data.get('eventId')}")
+            else:
+                print(f"⚠️ [Meta CAPI Warning] Status: {response.status_code}, Response: {response.text}")
         except Exception as e:
-            print(f"[Meta CAPI Error]: {e}")
+            print(f"❌ [Meta CAPI Error]: {e}")
 
 
 async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
@@ -221,14 +225,18 @@ async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agen
 
     async with httpx.AsyncClient() as client:
         try:
-            await client.post(
+            response = await client.post(
                 url,
                 json=payload,
                 headers={"Access-Token": settings.TIKTOK_ACCESS_TOKEN},
                 timeout=6.0
             )
+            if response.is_success:
+                print(f"✅ [TikTok CAPI] Successfully sent CompletePayment event. Deduplication ID: {order_data.get('eventId')}")
+            else:
+                print(f"⚠️ [TikTok CAPI Warning] Status: {response.status_code}, Response: {response.text}")
         except Exception as e:
-            print(f"[TikTok CAPI Error]: {e}")
+            print(f"❌ [TikTok CAPI Error]: {e}")
 
 
 async def send_snapchat_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
@@ -240,29 +248,23 @@ async def send_snapchat_capi(order_data: Dict[str, Any], client_ip: str, user_ag
 
     payload = {
         "pixel_id": settings.SNAPCHAT_PIXEL_ID,
-        "event": "PURCHASE",
-        "event_time": int(order_data.get("timestamp_unix", 1720000000)),
+        "timestamp": str(int(order_data.get("timestamp_unix", 1720000000)) * 1000),
+        "event_type": "PURCHASE",
         "event_conversion_type": "WEB",
-        "event_tag": order_data.get("eventId"),
-        "user_data": {
-            "phone_number": sha256_hash(norm_phone),
-            "client_ip_address": client_ip,
-            "client_user_agent": user_agent,
-        },
-        "custom_data": {
-            "currency": "MAD",
-            "price": str(float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0))),
-            "item_ids": [
-                item.get("id") or item.get("name")
-                for item in order_data.get("items", [])
-            ],
-            "number_items": str(sum(item.get("quantity", 1) for item in order_data.get("items", []))),
-        },
+        "client_dedup_id": order_data.get("eventId"),
+        "transaction_id": order_data.get("orderId"),
+        "hashed_phone_number": sha256_hash(norm_phone),
+        "hashed_ip_address": sha256_hash(client_ip),
+        "user_agent": user_agent,
+        "price": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
+        "currency": "MAD",
+        "item_ids": ";".join([item.get("id") or item.get("name") for item in order_data.get("items", [])]),
+        "number_items": sum(item.get("quantity", 1) for item in order_data.get("items", []))
     }
 
     async with httpx.AsyncClient() as client:
         try:
-            await client.post(
+            response = await client.post(
                 url,
                 json=payload,
                 headers={
@@ -271,5 +273,9 @@ async def send_snapchat_capi(order_data: Dict[str, Any], client_ip: str, user_ag
                 },
                 timeout=6.0
             )
+            if response.is_success:
+                print(f"✅ [Snapchat CAPI] Successfully sent PURCHASE event. Deduplication ID: {order_data.get('eventId')}")
+            else:
+                print(f"⚠️ [Snapchat CAPI Warning] Status: {response.status_code}, Response: {response.text}")
         except Exception as e:
-            print(f"[Snapchat CAPI Error]: {e}")
+            print(f"❌ [Snapchat CAPI Error]: {e}")
