@@ -144,7 +144,8 @@ async def get_admin_stats(
     product_stats: Dict[str, Dict[str, Any]] = {
         "HydroPure™": {"name": "دوش التوربو المفلتر HydroPure™", "sku": "VM-SHW-01", "units": 0, "revenue": 0.0},
         "AuraFloss™": {"name": "خيط الأسنان المائي AuraFloss™", "sku": "VM-FLS-02", "units": 0, "revenue": 0.0},
-        "ErgoCushion™": {"name": "وسادة المقعد التقويمية ErgoCushion™", "sku": "VM-CSH-03", "units": 0, "revenue": 0.0},
+        "KneeRelief™": {"name": "مشد الركبة الحراري KneeRelief™", "sku": "VM-KNE-03", "units": 0, "revenue": 0.0},
+        "VitalFit™": {"name": "الميزان الذكي VitalFit™", "sku": "VM-SCL-04", "units": 0, "revenue": 0.0},
     }
     tier_counts = {"1_piece": 0, "2_pieces": 0, "3_pieces": 0}
 
@@ -162,9 +163,12 @@ async def get_admin_stats(
             elif "flosser" in name or "aurafloss" in name or "خيط" in name or "الأسنان" in name:
                 product_stats["AuraFloss™"]["units"] += qty
                 product_stats["AuraFloss™"]["revenue"] += price
-            elif "cushion" in name or "ergocushion" in name or "وسادة" in name or "مقعد" in name:
-                product_stats["ErgoCushion™"]["units"] += qty
-                product_stats["ErgoCushion™"]["revenue"] += price
+            elif "knee" in name or "kneerelief" in name or "ركبة" in name or "مشد" in name:
+                product_stats["KneeRelief™"]["units"] += qty
+                product_stats["KneeRelief™"]["revenue"] += price
+            elif "scale" in name or "vitalfit" in name or "ميزان" in name or "دهون" in name:
+                product_stats["VitalFit™"]["units"] += qty
+                product_stats["VitalFit™"]["revenue"] += price
             
             # Tier count estimation
             if qty == 1:

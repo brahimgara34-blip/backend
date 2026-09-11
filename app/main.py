@@ -98,7 +98,12 @@ async def get_sitemap():
     <priority>0.95</priority>
   </url>
   <url>
-    <loc>https://vitalismaroc.shop/products/ergocushion-seat</loc>
+    <loc>https://vitalismaroc.shop/products/kneerelief-heated-brace</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
+    <loc>https://vitalismaroc.shop/products/vitalfit-smart-scale</loc>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
   </url>

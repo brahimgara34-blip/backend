@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS orders (
     risk_score NUMERIC(5, 2) DEFAULT 0.00,
     user_agent TEXT,
     client_ip VARCHAR(50),
+    landing_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

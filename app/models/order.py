@@ -29,6 +29,7 @@ class Order(Base):
     risk_score = Column(Numeric(5, 2), nullable=True)
     user_agent = Column(Text, nullable=True)
     client_ip = Column(String(50), nullable=True)
+    landing_url = Column(Text, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

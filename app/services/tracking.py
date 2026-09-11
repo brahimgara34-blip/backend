@@ -40,8 +40,10 @@ def get_item_sku(item_id: str, item_name: str) -> str:
         return "VM-SHW-01"
     if "flosser" in item_id_lower or "aurafloss" in item_name_lower or "خيط" in item_name_lower or "الأسنان" in item_name_lower:
         return "VM-FLS-02"
-    if "cushion" in item_id_lower or "ergocushion" in item_name_lower or "وسادة" in item_name_lower or "مقعد" in item_name_lower:
-        return "VM-CSH-03"
+    if "knee" in item_id_lower or "cushion" in item_id_lower or "kneerelief" in item_name_lower or "ركبة" in item_name_lower or "مشد" in item_name_lower:
+        return "VM-KNE-03"
+    if "scale" in item_id_lower or "vitalfit" in item_name_lower or "ميزان" in item_name_lower or "دهون" in item_name_lower:
+        return "VM-SCL-04"
     
     clean_id = re.sub(r"[^A-Za-z0-9]", "", item_id.upper()) if item_id else "PROD"
     return f"VM-{clean_id[:6]}-01"
@@ -99,6 +101,14 @@ async def send_google_sheets_webhook(order_data: Dict[str, Any]):
     total_price = float(order_data.get("totalAmount") or order_data.get("total_amount") or 0.0)
     currency_str = "SAR (الدرهم.المغربي)"
 
+    # 8. First-touch landing URL (UTM / click IDs included)
+    landing_url = (
+        order_data.get("landingUrl")
+        or order_data.get("url")
+        or order_data.get("landing_url")
+        or ""
+    )
+
     # Payload matching the exact Google Sheet / Excel schema
     sheets_payload = {
         # Exact column keys
@@ -109,6 +119,8 @@ async def send_google_sheets_webhook(order_data: Dict[str, Any]):
         "phone": phone_formatted,
         "product": product_str,
         "sku": sku_str,
+        "url": landing_url,
+        "landingUrl": landing_url,
         "quantity": quantity_str,
         "total price": total_price,
         "total_price": total_price,

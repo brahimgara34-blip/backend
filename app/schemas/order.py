@@ -21,6 +21,8 @@ class OrderCreateSchema(BaseModel):
     upsellProduct: Optional[str] = None
     upsellAmount: Optional[float] = 0.0
     eventId: Optional[str] = None
+    landingUrl: Optional[str] = None
+    url: Optional[str] = None
 
 
 class OrderResponseSchema(BaseModel):

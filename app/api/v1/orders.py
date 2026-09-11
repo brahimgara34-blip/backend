@@ -40,6 +40,7 @@ async def create_order(
         geo_data = {"city": "المغرب", "region": "MA", "country": "MA", "is_proxy": False, "risk_score": 0.0}
 
     normalized_phone = normalize_moroccan_phone(payload.phoneNumber)
+    landing_url = (payload.landingUrl or payload.url or "").strip() or None
 
     # 3. Create database Order instance
     new_order = Order(
@@ -60,7 +61,8 @@ async def create_order(
         is_proxy=geo_data.get("is_proxy", False),
         risk_score=geo_data.get("risk_score", 0.0),
         user_agent=user_agent[:1000] if user_agent else "",
-        client_ip=client_ip[:50] if client_ip else ""
+        client_ip=client_ip[:50] if client_ip else "",
+        landing_url=landing_url[:2000] if landing_url else None,
     )
 
     # 4. Attach OrderItems safely
@@ -91,6 +93,8 @@ async def create_order(
     order_dict["is_proxy"] = geo_data.get("is_proxy", False)
     order_dict["risk_score"] = geo_data.get("risk_score", 0.0)
     order_dict["client_ip"] = client_ip
+    order_dict["landingUrl"] = landing_url
+    order_dict["url"] = landing_url
 
     # 6. Attach TrackingEvent safely
     try:

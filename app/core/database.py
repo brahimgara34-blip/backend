@@ -57,6 +57,7 @@ async def init_db():
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS normalized_phone VARCHAR(50);",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'طلب جديد مؤكد (COD)';",
             "ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB;",
+            "ALTER TABLE orders ADD COLUMN IF NOT EXISTS landing_url TEXT;",
             "ALTER TABLE orders ALTER COLUMN items DROP NOT NULL;",
             "ALTER TABLE orders ALTER COLUMN normalized_phone DROP NOT NULL;",
             
