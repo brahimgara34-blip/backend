@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = "vitalis2026admin"
     ADMIN_JWT_SECRET: str = "vitalis_maroc_admin_secure_secret_key_2026_xyz"
     ADMIN_SESSION_HOURS: int = 72
+
+    # Redirect Killer admin (fully separate from /admin)
+    REDIRECT_ADMIN_USERNAME: str = "redirectadmin"
+    REDIRECT_ADMIN_PASSWORD: str = ""
+    REDIRECT_ADMIN_JWT_SECRET: str = "vitalis_redirectkiller_jwt_secret_change_me"
+    REDIRECT_ADMIN_SESSION_HOURS: int = 72
     MAXMIND_RISK_THRESHOLD: float = 30.0
 
     # Webhook

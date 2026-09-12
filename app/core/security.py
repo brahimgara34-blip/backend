@@ -126,3 +126,74 @@ async def get_current_admin(
         )
 
     return verify_admin_token(token_str)
+
+
+def create_redirect_admin_token(username: str) -> str:
+    header = {"alg": "HS256", "typ": "JWT"}
+    now = int(time.time())
+    expires_at = now + (settings.REDIRECT_ADMIN_SESSION_HOURS * 3600)
+    payload = {
+        "sub": username,
+        "role": "redirect_admin",
+        "iat": now,
+        "exp": expires_at,
+    }
+    header_b64 = _b64_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+    payload_b64 = _b64_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    message = f"{header_b64}.{payload_b64}".encode("utf-8")
+    signature = hmac.new(
+        settings.REDIRECT_ADMIN_JWT_SECRET.encode("utf-8"),
+        message,
+        hashlib.sha256,
+    ).digest()
+    return f"{header_b64}.{payload_b64}.{_b64_encode(signature)}"
+
+
+def verify_redirect_admin_token(token: str) -> Dict[str, Any]:
+    try:
+        parts = token.strip().split(".")
+        if len(parts) != 3:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token format")
+
+        header_b64, payload_b64, sig_b64 = parts
+        message = f"{header_b64}.{payload_b64}".encode("utf-8")
+        expected_sig = hmac.new(
+            settings.REDIRECT_ADMIN_JWT_SECRET.encode("utf-8"),
+            message,
+            hashlib.sha256,
+        ).digest()
+        if not hmac.compare_digest(expected_sig, _b64_decode(sig_b64)):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token signature")
+
+        payload = json.loads(_b64_decode(payload_b64).decode("utf-8"))
+        if payload.get("role") != "redirect_admin":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token role")
+        if payload.get("exp", 0) < int(time.time()):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
+        return payload
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+
+
+async def get_current_redirect_admin(
+    auth: Optional[HTTPAuthorizationCredentials] = Security(security_scheme),
+    authorization: Optional[str] = Header(None),
+    token_query: Optional[str] = Query(None, alias="token"),
+) -> Dict[str, Any]:
+    token_str = None
+    if auth and auth.credentials:
+        token_str = auth.credentials
+    elif authorization and authorization.startswith("Bearer "):
+        token_str = authorization[7:].strip()
+    elif token_query:
+        token_str = token_query.strip()
+
+    if not token_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return verify_redirect_admin_token(token_str)

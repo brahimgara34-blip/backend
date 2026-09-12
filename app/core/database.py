@@ -35,6 +35,7 @@ async def init_db():
     """
     from app.models.order import Order, OrderItem, TrackingEvent
     from app.models.analytics import ClickEvent
+    from app.models.redirect import RedirectRule
 
     async with engine.begin() as conn:
         # 1. Create tables if they do not exist
@@ -113,6 +114,19 @@ async def init_db():
             );
             """,
             
+            """
+            CREATE TABLE IF NOT EXISTS redirect_rules (
+                id SERIAL PRIMARY KEY,
+                slug VARCHAR(80) UNIQUE NOT NULL,
+                destination VARCHAR(500) NOT NULL,
+                label VARCHAR(255),
+                note TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_redirect_rules_slug ON redirect_rules(slug);",
+
             # Indices for lightning-fast queries
             "CREATE INDEX IF NOT EXISTS idx_orders_order_id ON orders(order_id);",
             "CREATE INDEX IF NOT EXISTS idx_orders_phone ON orders(phone_number);",

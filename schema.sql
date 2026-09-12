@@ -51,9 +51,20 @@ CREATE TABLE IF NOT EXISTS tracking_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS redirect_rules (
+    id SERIAL PRIMARY KEY,
+    slug VARCHAR(80) UNIQUE NOT NULL,
+    destination VARCHAR(500) NOT NULL,
+    label VARCHAR(255),
+    note TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indices for rapid querying
 CREATE INDEX IF NOT EXISTS idx_orders_order_id ON orders(order_id);
 CREATE INDEX IF NOT EXISTS idx_orders_phone ON orders(phone_number);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_tracking_events_order_id ON tracking_events(order_id);
 CREATE INDEX IF NOT EXISTS idx_tracking_events_event_id ON tracking_events(event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_redirect_rules_slug ON redirect_rules(slug);

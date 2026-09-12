@@ -7,6 +7,7 @@ from app.core.database import init_db
 from app.api.v1.orders import router as orders_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.analytics import router as analytics_router
+from app.api.v1.redirects import router as redirects_router
 
 
 @asynccontextmanager
@@ -47,6 +48,7 @@ app.add_middleware(
 app.include_router(orders_router, prefix=settings.API_V1_STR, tags=["Orders"])
 app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["Admin Dashboard"])
 app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["Analytics & Clicks"])
+app.include_router(redirects_router, prefix=f"{settings.API_V1_STR}/redirects", tags=["Redirect Killer"])
 
 
 @app.get("/", tags=["Root"])
