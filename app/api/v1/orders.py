@@ -143,6 +143,7 @@ async def create_order(
             print(f"✅ [RAW SQL FALLBACK SUCCESS] Order #{payload.orderId} saved via raw SQL fallback!")
         except Exception as raw_e:
             print(f"❌ [RAW SQL ERROR]: {raw_e}")
+            background_tasks.add_task(send_google_sheets_webhook, order_dict)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Database error: {str(e)}"

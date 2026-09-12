@@ -137,18 +137,43 @@ async def send_google_sheets_webhook(order_data: Dict[str, Any]):
         "upsellProduct": order_data.get("upsellProduct"),
     }
     
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                settings.GOOGLE_SHEET_WEBHOOK_URL,
-                json=sheets_payload,
-                headers={"Content-Type": "application/json"},
-                timeout=12.0,
-                follow_redirects=True
+    try:
+        await post_google_apps_script(settings.GOOGLE_SHEET_WEBHOOK_URL, sheets_payload)
+        print(f"📊 [Google Sheets Webhook] Sent Order #{order_id_formatted}")
+    except Exception as e:
+        print(f"[Webhook Error] Failed to send to Google Sheets: {e}")
+
+
+async def post_google_apps_script(url: str, payload: Dict[str, Any]) -> None:
+    """
+    Apps Script web apps answer with 302. If the client follows that as GET,
+    doPost receives an empty body and no row is written. Keep POST on every hop.
+    """
+    if not url:
+        print("⚠️ [Google Sheets Webhook] GOOGLE_SHEET_WEBHOOK_URL is empty")
+        return
+
+    headers = {"Content-Type": "application/json"}
+    current = url.strip()
+
+    async with httpx.AsyncClient(follow_redirects=False, timeout=15.0) as client:
+        for _ in range(5):
+            response = await client.post(current, json=payload, headers=headers)
+            if response.status_code in (301, 302, 303, 307, 308):
+                location = response.headers.get("location")
+                print(f"📊 [Google Sheets Webhook] Redirect {response.status_code} -> {location}")
+                if not location:
+                    break
+                current = location
+                continue
+
+            print(
+                f"📊 [Google Sheets Webhook] Status {response.status_code} "
+                f"body={response.text[:300]}"
             )
-            print(f"📊 [Google Sheets Webhook] Sent Order #{order_id_formatted} -> Status {response.status_code}")
-        except Exception as e:
-            print(f"[Webhook Error] Failed to send to Google Sheets: {e}")
+            return
+
+        print("⚠️ [Google Sheets Webhook] Exhausted Apps Script redirects without a final response")
 
 
 async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
