@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     MAXMIND_RISK_THRESHOLD: float = 30.0
 
     # Webhook
-    GOOGLE_SHEET_WEBHOOK_URL: str = "https://script.google.com/macros/s/AKfycbzKj-JgAocEBK1wlnIX-M0Uand48zVAb70NP8zH_wrk7LDZ4mgjZq3tCqnfOA-BZg2v7Q/exec"
+    GOOGLE_SHEET_WEBHOOK_URL: str = "https://script.google.com/macros/s/AKfycbwl0YoETUXCBu2FOvlKtBr3kugSYW9YVnK5iBNWXJFnDT8EIWlC3zOSIdadBwSEP0Jchg/exec"
     
     # MaxMind GeoIP & Fraud Protection
     MAXMIND_ACCOUNT_ID: str = ""
