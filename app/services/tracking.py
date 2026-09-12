@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 from datetime import datetime
 from typing import Dict, Any, List
@@ -153,27 +154,16 @@ async def post_google_apps_script(url: str, payload: Dict[str, Any]) -> None:
         print("⚠️ [Google Sheets Webhook] GOOGLE_SHEET_WEBHOOK_URL is empty")
         return
 
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "text/plain;charset=utf-8"}
+    raw_body = json.dumps(payload, ensure_ascii=False)
     current = url.strip()
 
-    async with httpx.AsyncClient(follow_redirects=False, timeout=15.0) as client:
-        for _ in range(5):
-            response = await client.post(current, json=payload, headers=headers)
-            if response.status_code in (301, 302, 303, 307, 308):
-                location = response.headers.get("location")
-                print(f"📊 [Google Sheets Webhook] Redirect {response.status_code} -> {location}")
-                if not location:
-                    break
-                current = location
-                continue
-
-            print(
-                f"📊 [Google Sheets Webhook] Status {response.status_code} "
-                f"body={response.text[:300]}"
-            )
-            return
-
-        print("⚠️ [Google Sheets Webhook] Exhausted Apps Script redirects without a final response")
+    async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
+        response = await client.post(current, content=raw_body.encode("utf-8"), headers=headers)
+        print(
+            f"📊 [Google Sheets Webhook] Status {response.status_code} "
+            f"body={response.text[:300]}"
+        )
 
 
 async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
