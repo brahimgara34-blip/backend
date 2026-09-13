@@ -24,6 +24,9 @@ async def lifespan(app: FastAPI):
         print(f"❌ [Database Connection Error]: {e}")
         print(f"👉 Please ensure DATABASE_URL in Easypanel Environment matches your PostgreSQL service.")
 
+    print(f"[Tracking] Meta CAPI: {'ON' if settings.meta_capi_ready else 'OFF — add META_PIXEL_ID + META_CAPI_TOKEN'}")
+    print(f"[Tracking] TikTok CAPI: {'ON' if settings.tiktok_capi_ready else 'OFF'}")
+    print(f"[Tracking] Snapchat CAPI: {'ON' if settings.snapchat_capi_ready else 'OFF'}")
     print(f"==================================================")
     yield
     print("[Shutdown] Cleaning up server resources...")
@@ -66,7 +69,12 @@ async def health_check():
     return {
         "status": "healthy",
         "service": settings.PROJECT_NAME,
-        "version": settings.VERSION
+        "version": settings.VERSION,
+        "tracking": {
+            "meta": settings.meta_capi_ready,
+            "tiktok": settings.tiktok_capi_ready,
+            "snapchat": settings.snapchat_capi_ready,
+        },
     }
 
 

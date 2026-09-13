@@ -1,8 +1,10 @@
 import hashlib
 import json
 import re
+import time
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from urllib.parse import parse_qs, urlparse
 import httpx
 from app.core.config import settings
 
@@ -166,54 +168,103 @@ async def post_google_apps_script(url: str, payload: Dict[str, Any]) -> None:
         )
 
 
+def _landing_url(order_data: Dict[str, Any]) -> str:
+    return (
+        order_data.get("landingUrl")
+        or order_data.get("url")
+        or order_data.get("landing_url")
+        or ""
+    ).strip()
+
+
+def _meta_fbc_from_url(landing_url: str, event_time: int) -> Optional[str]:
+    if not landing_url:
+        return None
+    try:
+        fbclid = (parse_qs(urlparse(landing_url).query).get("fbclid") or [""])[0]
+    except Exception:
+        return None
+    if not fbclid:
+        return None
+    return f"fb.1.{event_time}.{fbclid}"
+
+
 async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
-    if not settings.META_CAPI_TOKEN or not settings.META_PIXEL_ID:
+    pixel_id = settings._clean(settings.META_PIXEL_ID)
+    token = settings._clean(settings.META_CAPI_TOKEN)
+    if not pixel_id or not token:
+        print("⚠️ [Meta CAPI] Skipped — META_PIXEL_ID or META_CAPI_TOKEN is empty")
         return
 
-    url = f"https://graph.facebook.com/v19.0/{settings.META_PIXEL_ID}/events?access_token={settings.META_CAPI_TOKEN}"
-    norm_phone = normalize_moroccan_phone(order_data.get("phoneNumber") or order_data.get("phone_number", ""))
+    raw_phone = order_data.get("phoneNumber") or order_data.get("phone_number") or ""
+    digits = "".join(filter(str.isdigit, str(raw_phone)))
+    norm_phone = normalize_moroccan_phone(str(raw_phone)) if len(digits) >= 9 else ""
+    customer_name = order_data.get("customerName") or order_data.get("customer_name") or ""
+    event_time = int(order_data.get("timestamp_unix") or time.time())
+    landing_url = _landing_url(order_data) or "https://vitalismaroc.shop/"
 
-    user_data = {
-        "ph": [sha256_hash(norm_phone)],
-        "fn": [sha256_hash(order_data.get("customerName") or order_data.get("customer_name", ""))],
+    user_data: Dict[str, Any] = {
         "client_ip_address": client_ip,
         "client_user_agent": user_agent,
-        "country": [sha256_hash("ma")]
+        "country": [sha256_hash("ma")],
     }
+    phone_hash = sha256_hash(norm_phone)
+    if phone_hash:
+        user_data["ph"] = [phone_hash]
+    name_hash = sha256_hash(customer_name)
+    if name_hash:
+        user_data["fn"] = [name_hash]
 
-    # Add MaxMind Geolocation if available for ultra-high Event Quality Match
     city = order_data.get("city")
-    if city and city != "غير محدد":
+    if city and city not in ("غير محدد", "المغرب"):
         user_data["ct"] = [sha256_hash(city)]
-    
+
     region = order_data.get("region")
-    if region and region != "غير محدد":
+    if region and region not in ("غير محدد", "MA"):
         user_data["st"] = [sha256_hash(region)]
 
-    payload = {
-        "data": [{
-            "event_name": "Purchase",
-            "event_time": int(order_data.get("timestamp_unix", 1720000000)),
-            "event_id": order_data.get("eventId"),
-            "action_source": "website",
-            "user_data": user_data,
-            "custom_data": {
-                "currency": "MAD",
-                "value": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
-                "content_type": "product",
-                "contents": [
-                    {"id": item.get("id") or item.get("name"), "quantity": item.get("quantity", 1)}
-                    for item in order_data.get("items", [])
-                ]
-            }
-        }]
+    fbc = _meta_fbc_from_url(landing_url, event_time)
+    if fbc:
+        user_data["fbc"] = fbc
+
+    event = {
+        "event_name": "Purchase",
+        "event_time": event_time,
+        "event_id": order_data.get("eventId") or order_data.get("orderId"),
+        "action_source": "website",
+        "event_source_url": landing_url,
+        "user_data": user_data,
+        "custom_data": {
+            "currency": "MAD",
+            "value": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
+            "content_type": "product",
+            "order_id": order_data.get("orderId") or order_data.get("order_id"),
+            "contents": [
+                {"id": item.get("id") or item.get("name"), "quantity": item.get("quantity", 1)}
+                for item in order_data.get("items", [])
+            ],
+        },
     }
 
+    payload: Dict[str, Any] = {"data": [event]}
+    test_code = settings._clean(settings.META_TEST_EVENT_CODE)
+    if test_code:
+        payload["test_event_code"] = test_code
+
+    url = f"https://graph.facebook.com/v21.0/{pixel_id}/events"
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.post(url, json=payload, timeout=6.0)
+            response = await client.post(
+                url,
+                params={"access_token": token},
+                json=payload,
+                timeout=8.0,
+            )
             if response.is_success:
-                print(f"✅ [Meta CAPI] Successfully sent Purchase event. Deduplication ID: {order_data.get('eventId')}")
+                print(
+                    f"✅ [Meta CAPI] Successfully sent Purchase event. "
+                    f"Deduplication ID: {event.get('event_id')}"
+                )
             else:
                 print(f"⚠️ [Meta CAPI Warning] Status: {response.status_code}, Response: {response.text}")
         except Exception as e:
@@ -221,7 +272,8 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
 
 
 async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
-    if not settings.TIKTOK_ACCESS_TOKEN or not settings.TIKTOK_PIXEL_ID:
+    if not settings.tiktok_capi_ready:
+        print("⚠️ [TikTok CAPI] Skipped — TIKTOK_PIXEL_ID or TIKTOK_ACCESS_TOKEN is empty")
         return
 
     url = "https://business-api.tiktok.com/open_api/v1.3/event/track/"
@@ -229,7 +281,7 @@ async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agen
 
     payload = {
         "event_source": "web",
-        "event_source_id": settings.TIKTOK_PIXEL_ID,
+        "event_source_id": settings._clean(settings.TIKTOK_PIXEL_ID),
         "data": [{
             "event": "CompletePayment",
             "event_time": int(order_data.get("timestamp_unix", 1720000000)),
@@ -255,7 +307,7 @@ async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agen
             response = await client.post(
                 url,
                 json=payload,
-                headers={"Access-Token": settings.TIKTOK_ACCESS_TOKEN},
+                headers={"Access-Token": settings._clean(settings.TIKTOK_ACCESS_TOKEN)},
                 timeout=6.0
             )
             if response.is_success:
@@ -267,14 +319,15 @@ async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agen
 
 
 async def send_snapchat_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
-    if not settings.SNAPCHAT_API_TOKEN or not settings.SNAPCHAT_PIXEL_ID:
+    if not settings.snapchat_capi_ready:
+        print("⚠️ [Snapchat CAPI] Skipped — SNAPCHAT_PIXEL_ID or SNAPCHAT_API_TOKEN is empty")
         return
 
     url = f"https://tr.snapchat.com/v2/conversion"
     norm_phone = normalize_moroccan_phone(order_data.get("phoneNumber") or order_data.get("phone_number", ""))
 
     payload = {
-        "pixel_id": settings.SNAPCHAT_PIXEL_ID,
+        "pixel_id": settings._clean(settings.SNAPCHAT_PIXEL_ID),
         "timestamp": str(int(order_data.get("timestamp_unix", 1720000000)) * 1000),
         "event_type": "PURCHASE",
         "event_conversion_type": "WEB",
@@ -295,7 +348,7 @@ async def send_snapchat_capi(order_data: Dict[str, Any], client_ip: str, user_ag
                 url,
                 json=payload,
                 headers={
-                    "Authorization": f"Bearer {settings.SNAPCHAT_API_TOKEN}",
+                    "Authorization": f"Bearer {settings._clean(settings.SNAPCHAT_API_TOKEN)}",
                     "Content-Type": "application/json",
                 },
                 timeout=6.0

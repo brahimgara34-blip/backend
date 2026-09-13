@@ -5,7 +5,7 @@ import re
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Vitalis Maroc API"
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.0.1"
     API_V1_STR: str = "/api/v1"
     
     # Database (Default fallback connects to service 'datapase' or 'vitalismaroc_datapase' in Easypanel)
@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Tracking Meta CAPI
     META_PIXEL_ID: str = ""
     META_CAPI_TOKEN: str = ""
+    META_TEST_EVENT_CODE: str = ""
     
     # Tracking TikTok Events API
     TIKTOK_PIXEL_ID: str = ""
@@ -45,6 +46,22 @@ class Settings(BaseSettings):
     
     # CORS
     ALLOWED_ORIGINS: str = "*"
+
+    @staticmethod
+    def _clean(value: str) -> str:
+        return (value or "").strip().strip("'\"")
+
+    @property
+    def meta_capi_ready(self) -> bool:
+        return bool(self._clean(self.META_PIXEL_ID) and self._clean(self.META_CAPI_TOKEN))
+
+    @property
+    def tiktok_capi_ready(self) -> bool:
+        return bool(self._clean(self.TIKTOK_PIXEL_ID) and self._clean(self.TIKTOK_ACCESS_TOKEN))
+
+    @property
+    def snapchat_capi_ready(self) -> bool:
+        return bool(self._clean(self.SNAPCHAT_PIXEL_ID) and self._clean(self.SNAPCHAT_API_TOKEN))
 
     @property
     def cors_origins(self) -> List[str]:
