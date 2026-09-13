@@ -305,6 +305,7 @@ async def get_admin_orders(
             "riskScore": float(o.risk_score or 0.0),
             "clientIp": o.client_ip or "",
             "items": o.items or [],
+            "landingUrl": o.landing_url or "",
             "createdAt": o.created_at.isoformat() if o.created_at else "",
         })
 
