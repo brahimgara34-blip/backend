@@ -191,8 +191,8 @@ def _meta_fbc_from_url(landing_url: str, event_time: int) -> Optional[str]:
 
 async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
     pixel_ids = settings.meta_pixel_ids
-    token = settings._clean(settings.META_CAPI_TOKEN)
-    if not pixel_ids or not token:
+    tokens = settings.meta_capi_tokens
+    if not pixel_ids or not tokens:
         print("⚠️ [Meta CAPI] Skipped — META_PIXEL_ID or META_CAPI_TOKEN is empty")
         return
 
@@ -252,7 +252,8 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
         payload["test_event_code"] = test_code
 
     async with httpx.AsyncClient() as client:
-        for pixel_id in pixel_ids:
+        for index, pixel_id in enumerate(pixel_ids):
+            token = tokens[index] if index < len(tokens) else tokens[-1]
             url = f"https://graph.facebook.com/v21.0/{pixel_id}/events"
             try:
                 response = await client.post(
