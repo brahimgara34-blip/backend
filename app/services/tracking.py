@@ -284,9 +284,11 @@ async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agen
     norm_phone = normalize_moroccan_phone(order_data.get("phoneNumber") or order_data.get("phone_number", ""))
     token = settings._clean(settings.TIKTOK_ACCESS_TOKEN)
     event_id = order_data.get("eventId")
+    tokens = settings.tiktok_access_tokens
 
     async with httpx.AsyncClient() as client:
-        for pixel_id in settings.tiktok_pixel_ids:
+        for index, pixel_id in enumerate(settings.tiktok_pixel_ids):
+            token = tokens[index] if index < len(tokens) else tokens[-1]
             payload = {
                 "event_source": "web",
                 "event_source_id": pixel_id,

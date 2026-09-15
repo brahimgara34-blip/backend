@@ -5,7 +5,7 @@ import re
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Vitalis Maroc API"
-    VERSION: str = "1.0.3"
+    VERSION: str = "1.0.4"
     API_V1_STR: str = "/api/v1"
     
     # Database (Default fallback connects to service 'datapase' or 'vitalismaroc_datapase' in Easypanel)
@@ -51,10 +51,14 @@ class Settings(BaseSettings):
     def _clean(value: str) -> str:
         return (value or "").strip().strip("'\"")
 
+    @staticmethod
+    def _list(value: str) -> List[str]:
+        raw = Settings._clean(value).replace(";", ",")
+        return [part.strip() for part in raw.split(",") if part.strip()]
+
     @property
     def meta_pixel_ids(self) -> List[str]:
-        raw = self._clean(self.META_PIXEL_ID).replace(";", ",")
-        return [part.strip() for part in raw.split(",") if part.strip()]
+        return self._list(self.META_PIXEL_ID)
 
     @property
     def meta_capi_ready(self) -> bool:
@@ -62,12 +66,15 @@ class Settings(BaseSettings):
 
     @property
     def tiktok_pixel_ids(self) -> List[str]:
-        raw = self._clean(self.TIKTOK_PIXEL_ID).replace(";", ",")
-        return [part.strip() for part in raw.split(",") if part.strip()]
+        return self._list(self.TIKTOK_PIXEL_ID)
+
+    @property
+    def tiktok_access_tokens(self) -> List[str]:
+        return self._list(self.TIKTOK_ACCESS_TOKEN)
 
     @property
     def tiktok_capi_ready(self) -> bool:
-        return bool(self.tiktok_pixel_ids and self._clean(self.TIKTOK_ACCESS_TOKEN))
+        return bool(self.tiktok_pixel_ids and self.tiktok_access_tokens)
 
     @property
     def snapchat_capi_ready(self) -> bool:
