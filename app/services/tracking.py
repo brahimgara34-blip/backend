@@ -190,9 +190,9 @@ def _meta_fbc_from_url(landing_url: str, event_time: int) -> Optional[str]:
 
 
 async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
-    pixel_id = settings._clean(settings.META_PIXEL_ID)
+    pixel_ids = settings.meta_pixel_ids
     token = settings._clean(settings.META_CAPI_TOKEN)
-    if not pixel_id or not token:
+    if not pixel_ids or not token:
         print("⚠️ [Meta CAPI] Skipped — META_PIXEL_ID or META_CAPI_TOKEN is empty")
         return
 
@@ -251,24 +251,28 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
     if test_code:
         payload["test_event_code"] = test_code
 
-    url = f"https://graph.facebook.com/v21.0/{pixel_id}/events"
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url,
-                params={"access_token": token},
-                json=payload,
-                timeout=8.0,
-            )
-            if response.is_success:
-                print(
-                    f"✅ [Meta CAPI] Successfully sent Purchase event. "
-                    f"Deduplication ID: {event.get('event_id')}"
+        for pixel_id in pixel_ids:
+            url = f"https://graph.facebook.com/v21.0/{pixel_id}/events"
+            try:
+                response = await client.post(
+                    url,
+                    params={"access_token": token},
+                    json=payload,
+                    timeout=8.0,
                 )
-            else:
-                print(f"⚠️ [Meta CAPI Warning] Status: {response.status_code}, Response: {response.text}")
-        except Exception as e:
-            print(f"❌ [Meta CAPI Error]: {e}")
+                if response.is_success:
+                    print(
+                        f"✅ [Meta CAPI] Pixel {pixel_id} Purchase sent. "
+                        f"Deduplication ID: {event.get('event_id')}"
+                    )
+                else:
+                    print(
+                        f"⚠️ [Meta CAPI Warning] Pixel {pixel_id} "
+                        f"Status: {response.status_code}, Response: {response.text}"
+                    )
+            except Exception as e:
+                print(f"❌ [Meta CAPI Error] Pixel {pixel_id}: {e}")
 
 
 async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):

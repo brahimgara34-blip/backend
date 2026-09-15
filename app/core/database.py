@@ -144,3 +144,15 @@ async def init_db():
                 await conn.execute(text(stmt))
             except Exception as e:
                 print(f"[Migration Notice] {e}")
+
+        try:
+            await conn.execute(text("""
+                INSERT INTO redirect_rules (slug, destination, label)
+                VALUES
+                    ('astro', '/lp', 'Warm-up LP'),
+                    ('lp', '/lp', 'Landing page')
+                ON CONFLICT (slug) DO NOTHING;
+            """))
+            print("[Startup] Default redirect_rules ready (astro -> /lp)")
+        except Exception as e:
+            print(f"[Migration Notice] redirect seed: {e}")
