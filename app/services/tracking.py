@@ -282,44 +282,52 @@ async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agen
 
     url = "https://business-api.tiktok.com/open_api/v1.3/event/track/"
     norm_phone = normalize_moroccan_phone(order_data.get("phoneNumber") or order_data.get("phone_number", ""))
-
-    payload = {
-        "event_source": "web",
-        "event_source_id": settings._clean(settings.TIKTOK_PIXEL_ID),
-        "data": [{
-            "event": "CompletePayment",
-            "event_time": int(order_data.get("timestamp_unix", 1720000000)),
-            "event_id": order_data.get("eventId"),
-            "user": {
-                "phone": sha256_hash(norm_phone),
-                "ip": client_ip,
-                "user_agent": user_agent
-            },
-            "properties": {
-                "currency": "MAD",
-                "value": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
-                "contents": [
-                    {"content_id": item.get("id") or item.get("name"), "quantity": item.get("quantity", 1)}
-                    for item in order_data.get("items", [])
-                ]
-            }
-        }]
-    }
+    token = settings._clean(settings.TIKTOK_ACCESS_TOKEN)
+    event_id = order_data.get("eventId")
 
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url,
-                json=payload,
-                headers={"Access-Token": settings._clean(settings.TIKTOK_ACCESS_TOKEN)},
-                timeout=6.0
-            )
-            if response.is_success:
-                print(f"✅ [TikTok CAPI] Successfully sent CompletePayment event. Deduplication ID: {order_data.get('eventId')}")
-            else:
-                print(f"⚠️ [TikTok CAPI Warning] Status: {response.status_code}, Response: {response.text}")
-        except Exception as e:
-            print(f"❌ [TikTok CAPI Error]: {e}")
+        for pixel_id in settings.tiktok_pixel_ids:
+            payload = {
+                "event_source": "web",
+                "event_source_id": pixel_id,
+                "data": [{
+                    "event": "CompletePayment",
+                    "event_time": int(order_data.get("timestamp_unix", 1720000000)),
+                    "event_id": event_id,
+                    "user": {
+                        "phone": sha256_hash(norm_phone),
+                        "ip": client_ip,
+                        "user_agent": user_agent
+                    },
+                    "properties": {
+                        "currency": "MAD",
+                        "value": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
+                        "contents": [
+                            {"content_id": item.get("id") or item.get("name"), "quantity": item.get("quantity", 1)}
+                            for item in order_data.get("items", [])
+                        ]
+                    }
+                }]
+            }
+            try:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers={"Access-Token": token},
+                    timeout=6.0
+                )
+                if response.is_success:
+                    print(
+                        f"✅ [TikTok CAPI] Pixel {pixel_id} CompletePayment sent. "
+                        f"Deduplication ID: {event_id}"
+                    )
+                else:
+                    print(
+                        f"⚠️ [TikTok CAPI Warning] Pixel {pixel_id} "
+                        f"Status: {response.status_code}, Response: {response.text}"
+                    )
+            except Exception as e:
+                print(f"❌ [TikTok CAPI Error] Pixel {pixel_id}: {e}")
 
 
 async def send_snapchat_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
