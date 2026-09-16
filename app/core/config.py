@@ -5,7 +5,7 @@ import re
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Vitalis Maroc API"
-    VERSION: str = "1.0.7"
+    VERSION: str = "1.0.8"
     API_V1_STR: str = "/api/v1"
     
     # Database (Default fallback connects to service 'datapase' or 'vitalismaroc_datapase' in Easypanel)
@@ -31,9 +31,19 @@ class Settings(BaseSettings):
     MAXMIND_ACCOUNT_ID: str = ""
     MAXMIND_LICENSE_KEY: str = ""
     
-    # Tracking Meta CAPI
+    # Tracking Meta CAPI — pair N with META_PIXEL_ID_N + META_CAPI_TOKEN_N
     META_PIXEL_ID: str = ""
     META_CAPI_TOKEN: str = ""
+    META_PIXEL_ID_2: str = ""
+    META_CAPI_TOKEN_2: str = ""
+    META_PIXEL_ID_3: str = ""
+    META_CAPI_TOKEN_3: str = ""
+    META_PIXEL_ID_4: str = ""
+    META_CAPI_TOKEN_4: str = ""
+    META_PIXEL_ID_5: str = ""
+    META_CAPI_TOKEN_5: str = ""
+    META_PIXEL_ID_6: str = ""
+    META_CAPI_TOKEN_6: str = ""
     META_TEST_EVENT_CODE: str = ""
     
     # Tracking TikTok Events API
@@ -51,25 +61,50 @@ class Settings(BaseSettings):
     def _clean(value: str) -> str:
         return (value or "").strip().strip("'\"")
 
+    def _split_ids(self, value: str) -> List[str]:
+        raw = self._clean(value).replace(";", ",")
+        return [part.strip() for part in raw.split(",") if part.strip()]
+
+    def _numbered_meta_pairs(self):
+        pairs = []
+        for index in range(2, 7):
+            pixel_id = self._clean(getattr(self, f"META_PIXEL_ID_{index}", "") or "")
+            token = self._clean(getattr(self, f"META_CAPI_TOKEN_{index}", "") or "")
+            if pixel_id and token:
+                pairs.append((pixel_id, token))
+        return pairs
+
     @property
     def meta_pixel_ids(self) -> List[str]:
-        raw = self._clean(self.META_PIXEL_ID).replace(";", ",")
-        return [part.strip() for part in raw.split(",") if part.strip()]
+        ids = self._split_ids(self.META_PIXEL_ID)
+        for pixel_id, _token in self._numbered_meta_pairs():
+            if pixel_id not in ids:
+                ids.append(pixel_id)
+        for index in range(2, 7):
+            pixel_id = self._clean(getattr(self, f"META_PIXEL_ID_{index}", "") or "")
+            if pixel_id and pixel_id not in ids:
+                ids.append(pixel_id)
+        return ids
 
     @property
     def meta_capi_tokens(self) -> List[str]:
-        raw = self._clean(self.META_CAPI_TOKEN).replace(";", ",")
-        return [part.strip() for part in raw.split(",") if part.strip()]
+        return self._split_ids(self.META_CAPI_TOKEN)
 
     @property
     def meta_capi_targets(self):
-        pixels = self.meta_pixel_ids
-        tokens = self.meta_capi_tokens
-        if not pixels or not tokens:
-            return []
-        if len(tokens) == 1:
-            return [(pixel_id, tokens[0]) for pixel_id in pixels]
-        return list(zip(pixels, tokens))
+        pixels = self._split_ids(self.META_PIXEL_ID)
+        tokens = self._split_ids(self.META_CAPI_TOKEN)
+        paired = {}
+        if pixels and tokens:
+            if len(tokens) == 1:
+                for pixel_id in pixels:
+                    paired[pixel_id] = tokens[0]
+            else:
+                for pixel_id, token in zip(pixels, tokens):
+                    paired[pixel_id] = token
+        for pixel_id, token in self._numbered_meta_pairs():
+            paired[pixel_id] = token
+        return list(paired.items())
 
     @property
     def meta_capi_ready(self) -> bool:
