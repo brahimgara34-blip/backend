@@ -190,11 +190,17 @@ def _meta_fbc_from_url(landing_url: str, event_time: int) -> Optional[str]:
 
 
 async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):
-    pixel_ids = settings.meta_pixel_ids
-    tokens = settings.meta_capi_tokens
-    if not pixel_ids or not tokens:
+    targets = settings.meta_capi_targets
+    if not targets:
         print("⚠️ [Meta CAPI] Skipped — META_PIXEL_ID or META_CAPI_TOKEN is empty")
         return
+
+    skipped = [pid for pid in settings.meta_pixel_ids if pid not in {t[0] for t in targets}]
+    if skipped:
+        print(
+            "ℹ️ [Meta CAPI] Browser-only pixels (no matching CAPI token): "
+            + ", ".join(skipped)
+        )
 
     raw_phone = order_data.get("phoneNumber") or order_data.get("phone_number") or ""
     digits = "".join(filter(str.isdigit, str(raw_phone)))
@@ -252,8 +258,7 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
         payload["test_event_code"] = test_code
 
     async with httpx.AsyncClient() as client:
-        for index, pixel_id in enumerate(pixel_ids):
-            token = tokens[index] if index < len(tokens) else tokens[-1]
+        for pixel_id, token in targets:
             url = f"https://graph.facebook.com/v21.0/{pixel_id}/events"
             try:
                 response = await client.post(
@@ -283,54 +288,44 @@ async def send_tiktok_capi(order_data: Dict[str, Any], client_ip: str, user_agen
 
     url = "https://business-api.tiktok.com/open_api/v1.3/event/track/"
     norm_phone = normalize_moroccan_phone(order_data.get("phoneNumber") or order_data.get("phone_number", ""))
-    token = settings._clean(settings.TIKTOK_ACCESS_TOKEN)
-    event_id = order_data.get("eventId")
-    tokens = settings.tiktok_access_tokens
+
+    payload = {
+        "event_source": "web",
+        "event_source_id": settings._clean(settings.TIKTOK_PIXEL_ID),
+        "data": [{
+            "event": "CompletePayment",
+            "event_time": int(order_data.get("timestamp_unix", 1720000000)),
+            "event_id": order_data.get("eventId"),
+            "user": {
+                "phone": sha256_hash(norm_phone),
+                "ip": client_ip,
+                "user_agent": user_agent
+            },
+            "properties": {
+                "currency": "MAD",
+                "value": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
+                "contents": [
+                    {"content_id": item.get("id") or item.get("name"), "quantity": item.get("quantity", 1)}
+                    for item in order_data.get("items", [])
+                ]
+            }
+        }]
+    }
 
     async with httpx.AsyncClient() as client:
-        for index, pixel_id in enumerate(settings.tiktok_pixel_ids):
-            token = tokens[index] if index < len(tokens) else tokens[-1]
-            payload = {
-                "event_source": "web",
-                "event_source_id": pixel_id,
-                "data": [{
-                    "event": "CompletePayment",
-                    "event_time": int(order_data.get("timestamp_unix", 1720000000)),
-                    "event_id": event_id,
-                    "user": {
-                        "phone": sha256_hash(norm_phone),
-                        "ip": client_ip,
-                        "user_agent": user_agent
-                    },
-                    "properties": {
-                        "currency": "MAD",
-                        "value": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
-                        "contents": [
-                            {"content_id": item.get("id") or item.get("name"), "quantity": item.get("quantity", 1)}
-                            for item in order_data.get("items", [])
-                        ]
-                    }
-                }]
-            }
-            try:
-                response = await client.post(
-                    url,
-                    json=payload,
-                    headers={"Access-Token": token},
-                    timeout=6.0
-                )
-                if response.is_success:
-                    print(
-                        f"✅ [TikTok CAPI] Pixel {pixel_id} CompletePayment sent. "
-                        f"Deduplication ID: {event_id}"
-                    )
-                else:
-                    print(
-                        f"⚠️ [TikTok CAPI Warning] Pixel {pixel_id} "
-                        f"Status: {response.status_code}, Response: {response.text}"
-                    )
-            except Exception as e:
-                print(f"❌ [TikTok CAPI Error] Pixel {pixel_id}: {e}")
+        try:
+            response = await client.post(
+                url,
+                json=payload,
+                headers={"Access-Token": settings._clean(settings.TIKTOK_ACCESS_TOKEN)},
+                timeout=6.0
+            )
+            if response.is_success:
+                print(f"✅ [TikTok CAPI] Successfully sent CompletePayment event. Deduplication ID: {order_data.get('eventId')}")
+            else:
+                print(f"⚠️ [TikTok CAPI Warning] Status: {response.status_code}, Response: {response.text}")
+        except Exception as e:
+            print(f"❌ [TikTok CAPI Error]: {e}")
 
 
 async def send_snapchat_capi(order_data: Dict[str, Any], client_ip: str, user_agent: str):

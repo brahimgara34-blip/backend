@@ -5,7 +5,7 @@ import re
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Vitalis Maroc API"
-    VERSION: str = "1.0.5"
+    VERSION: str = "1.0.6"
     API_V1_STR: str = "/api/v1"
     
     # Database (Default fallback connects to service 'datapase' or 'vitalismaroc_datapase' in Easypanel)
@@ -31,22 +31,14 @@ class Settings(BaseSettings):
     MAXMIND_ACCOUNT_ID: str = ""
     MAXMIND_LICENSE_KEY: str = ""
     
-    # Tracking Meta CAPI (one ID + token per line; commas also work)
+    # Tracking Meta CAPI
     META_PIXEL_ID: str = ""
-    META_PIXEL_ID_2: str = ""
-    META_PIXEL_ID_3: str = ""
-    META_PIXEL_ID_4: str = ""
     META_CAPI_TOKEN: str = ""
-    META_CAPI_TOKEN_2: str = ""
-    META_CAPI_TOKEN_3: str = ""
-    META_CAPI_TOKEN_4: str = ""
     META_TEST_EVENT_CODE: str = ""
     
     # Tracking TikTok Events API
     TIKTOK_PIXEL_ID: str = ""
-    TIKTOK_PIXEL_ID_2: str = ""
     TIKTOK_ACCESS_TOKEN: str = ""
-    TIKTOK_ACCESS_TOKEN_2: str = ""
     
     # Tracking Snapchat CAPI
     SNAPCHAT_PIXEL_ID: str = ""
@@ -59,54 +51,33 @@ class Settings(BaseSettings):
     def _clean(value: str) -> str:
         return (value or "").strip().strip("'\"")
 
-    @staticmethod
-    def _list(value: str) -> List[str]:
-        raw = Settings._clean(value).replace(";", ",")
-        return [part.strip() for part in raw.split(",") if part.strip()]
-
-    def _collect(self, *values: str) -> List[str]:
-        found: List[str] = []
-        seen = set()
-        for value in values:
-            for part in self._list(value):
-                if part not in seen:
-                    seen.add(part)
-                    found.append(part)
-        return found
-
     @property
     def meta_pixel_ids(self) -> List[str]:
-        return self._collect(
-            self.META_PIXEL_ID,
-            self.META_PIXEL_ID_2,
-            self.META_PIXEL_ID_3,
-            self.META_PIXEL_ID_4,
-        )
+        raw = self._clean(self.META_PIXEL_ID).replace(";", ",")
+        return [part.strip() for part in raw.split(",") if part.strip()]
 
     @property
     def meta_capi_tokens(self) -> List[str]:
-        return self._collect(
-            self.META_CAPI_TOKEN,
-            self.META_CAPI_TOKEN_2,
-            self.META_CAPI_TOKEN_3,
-            self.META_CAPI_TOKEN_4,
-        )
+        raw = self._clean(self.META_CAPI_TOKEN).replace(";", ",")
+        return [part.strip() for part in raw.split(",") if part.strip()]
+
+    @property
+    def meta_capi_targets(self):
+        pixels = self.meta_pixel_ids
+        tokens = self.meta_capi_tokens
+        if not pixels or not tokens:
+            return []
+        if len(tokens) == 1:
+            return [(pixels[0], tokens[0])]
+        return list(zip(pixels, tokens))
 
     @property
     def meta_capi_ready(self) -> bool:
-        return bool(self.meta_pixel_ids and self.meta_capi_tokens)
-
-    @property
-    def tiktok_pixel_ids(self) -> List[str]:
-        return self._collect(self.TIKTOK_PIXEL_ID, self.TIKTOK_PIXEL_ID_2)
-
-    @property
-    def tiktok_access_tokens(self) -> List[str]:
-        return self._collect(self.TIKTOK_ACCESS_TOKEN, self.TIKTOK_ACCESS_TOKEN_2)
+        return bool(self.meta_capi_targets)
 
     @property
     def tiktok_capi_ready(self) -> bool:
-        return bool(self.tiktok_pixel_ids and self.tiktok_access_tokens)
+        return bool(self._clean(self.TIKTOK_PIXEL_ID) and self._clean(self.TIKTOK_ACCESS_TOKEN))
 
     @property
     def snapchat_capi_ready(self) -> bool:
