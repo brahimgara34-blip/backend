@@ -5,7 +5,7 @@ import re
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Vitalis Maroc API"
-    VERSION: str = "1.0.6"
+    VERSION: str = "1.0.7"
     API_V1_STR: str = "/api/v1"
     
     # Database (Default fallback connects to service 'datapase' or 'vitalismaroc_datapase' in Easypanel)
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
         if not pixels or not tokens:
             return []
         if len(tokens) == 1:
-            return [(pixels[0], tokens[0])]
+            return [(pixel_id, tokens[0]) for pixel_id in pixels]
         return list(zip(pixels, tokens))
 
     @property

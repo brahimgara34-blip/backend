@@ -273,10 +273,25 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
                         f"Deduplication ID: {event.get('event_id')}"
                     )
                 else:
-                    print(
-                        f"⚠️ [Meta CAPI Warning] Pixel {pixel_id} "
-                        f"Status: {response.status_code}, Response: {response.text}"
+                    body = response.text
+                    permission_miss = (
+                        response.status_code == 400
+                        and (
+                            "error_subcode\":33" in body
+                            or "does not exist" in body
+                            or "missing permissions" in body
+                        )
                     )
+                    if permission_miss:
+                        print(
+                            f"ℹ️ [Meta CAPI] Pixel {pixel_id} skipped — "
+                            "this token is not allowed on that dataset"
+                        )
+                    else:
+                        print(
+                            f"⚠️ [Meta CAPI Warning] Pixel {pixel_id} "
+                            f"Status: {response.status_code}, Response: {body}"
+                        )
             except Exception as e:
                 print(f"❌ [Meta CAPI Error] Pixel {pixel_id}: {e}")
 
