@@ -102,6 +102,33 @@ async def get_admin_stats(
     total_revenue = sum(float(o.total_amount or 0.0) for o in all_orders if "ملغي" not in str(o.status))
     aov = (total_revenue / total_orders) if total_orders > 0 else 0.0
 
+    # Lifetime AOV + average pieces (all non-cancelled orders, ignores date filter)
+    if range == "all" and not start_dt and not end_dt:
+        lifetime_pool = [o for o in all_orders if "ملغي" not in str(o.status or "")]
+    else:
+        res_life = await db.execute(select(Order))
+        lifetime_pool = [o for o in res_life.scalars().all() if "ملغي" not in str(o.status or "")]
+
+    lifetime_orders = len(lifetime_pool)
+    lifetime_revenue = sum(float(o.total_amount or 0.0) for o in lifetime_pool)
+    lifetime_aov = (lifetime_revenue / lifetime_orders) if lifetime_orders else 0.0
+
+    def _order_units(order: Order) -> int:
+        items = order.items or []
+        if isinstance(items, list) and items:
+            units = 0
+            for itm in items:
+                if isinstance(itm, dict):
+                    units += int(itm.get("quantity", 1) or 1)
+            if units:
+                return units
+        related = getattr(order, "order_items", None) or []
+        related_units = sum(int(getattr(it, "quantity", 1) or 1) for it in related)
+        return related_units or 1
+
+    lifetime_units = sum(_order_units(o) for o in lifetime_pool)
+    avg_units_per_order = (lifetime_units / lifetime_orders) if lifetime_orders else 1.0
+
     # Orders status breakdown
     status_counts: Dict[str, int] = {
         "طلب جديد مؤكد (COD)": 0,
@@ -222,6 +249,10 @@ async def get_admin_stats(
             "total_orders": total_orders,
             "confirmed_orders": status_counts.get("تم التأكيد هاتفياً", 0) + status_counts.get("قيد الشحن والتوصيل", 0) + status_counts.get("تم التسليم بنجاح", 0),
             "aov": round(aov, 2),
+            "lifetime_aov": round(lifetime_aov, 2),
+            "lifetime_orders": lifetime_orders,
+            "lifetime_units": lifetime_units,
+            "avg_units_per_order": round(avg_units_per_order, 2),
             "valid_morocco_clicks": valid_ma_clicks,
             "blocked_vpn_clicks": blocked_vpn_clicks,
             "total_clicks": total_clicks,
