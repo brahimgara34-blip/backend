@@ -177,6 +177,24 @@ def _landing_url(order_data: Dict[str, Any]) -> str:
     ).strip()
 
 
+def _meta_purchase_contents(items: Any) -> list:
+    """Line total stays the offer price (269 / 369 / bundle). item_price is per piece so Meta does not multiply the bundle twice."""
+    contents = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        qty = int(item.get("quantity") or 1)
+        if qty < 1:
+            qty = 1
+        line_total = float(item.get("price") or 0)
+        contents.append({
+            "id": item.get("id") or item.get("sku") or item.get("name"),
+            "quantity": qty,
+            "item_price": round(line_total / qty, 2),
+        })
+    return contents
+
+
 def _meta_fbc_from_url(landing_url: str, event_time: int) -> Optional[str]:
     if not landing_url:
         return None
@@ -233,6 +251,7 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
     if fbc:
         user_data["fbc"] = fbc
 
+    purchase_value = float(order_data.get("totalAmount") or order_data.get("total_amount") or 0.0)
     event = {
         "event_name": "Purchase",
         "event_time": event_time,
@@ -242,13 +261,10 @@ async def send_meta_capi(order_data: Dict[str, Any], client_ip: str, user_agent:
         "user_data": user_data,
         "custom_data": {
             "currency": "MAD",
-            "value": float(order_data.get("totalAmount") or order_data.get("total_amount", 0.0)),
+            "value": purchase_value,
             "content_type": "product",
             "order_id": order_data.get("orderId") or order_data.get("order_id"),
-            "contents": [
-                {"id": item.get("id") or item.get("name"), "quantity": item.get("quantity", 1)}
-                for item in order_data.get("items", [])
-            ],
+            "contents": _meta_purchase_contents(order_data.get("items", [])),
         },
     }
 
