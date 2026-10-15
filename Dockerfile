@@ -18,7 +18,8 @@ RUN if [ ! -f requirements.txt ] || [ ! -d app ]; then \
       rm -rf /tmp/repo; \
     fi
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt "greenlet>=3.1.1" \
+ && python -c "import greenlet; import sqlalchemy.ext.asyncio"
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
